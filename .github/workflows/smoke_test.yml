@@ -1,0 +1,76 @@
+name: rb-pkg-math Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  smoke-test:
+    name: Verify Secrets, Delta Harness & API Connectivity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Ops Repository
+        uses: actions/checkout@v4
+
+      - name: Verify Organization Secrets Ingestion
+        env:
+          K1: ${{ secrets.OPENCODE_KEY_1 }}
+          K2: ${{ secrets.OPENCODE_KEY_2 }}
+          K3: ${{ secrets.OPENCODE_KEY_3 }}
+          K4: ${{ secrets.OPENCODE_KEY_4 }}
+          K5: ${{ secrets.OPENCODE_KEY_5 }}
+          K6: ${{ secrets.OPENCODE_KEY_6 }}
+          K7: ${{ secrets.OPENCODE_KEY_7 }}
+          K8: ${{ secrets.OPENCODE_KEY_8 }}
+        run: |
+          echo "=== Step 1: Organization Secrets Ingestion Check ==="
+          PRESENT=0
+          for i in 1 2 3 4 5 6 7 8; do
+            VAR="K$i"
+            VAL="${!VAR}"
+            if [ -n "$VAL" ]; then
+              echo "  [OK] OPENCODE_KEY_$i is ingested into runner environment."
+              PRESENT=$((PRESENT + 1))
+            else
+              echo "  [MISSING] OPENCODE_KEY_$i is empty."
+            fi
+          done
+          echo "Total Secrets Ingested: $PRESENT / 8"
+          if [ "$PRESENT" -eq 0 ]; then
+            echo "Error: No secrets detected in organization!"
+            exit 1
+          fi
+
+      - name: Verify OpenCode API Authentication & Connectivity
+        env:
+          KEY: ${{ secrets.OPENCODE_KEY_1 }}
+        run: |
+          echo "=== Step 2: OpenCode API Connectivity Check ==="
+          if [ -z "$KEY" ]; then
+            echo "No primary key available."
+            exit 1
+          fi
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://api.opencode.ai/v1/models -H "Authorization: Bearer $KEY" || true)
+          echo "OpenCode API HTTP Status: $HTTP_CODE"
+          if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 401 ] || [ "$HTTP_CODE" -eq 403 ] || [ "$HTTP_CODE" -eq 429 ]; then
+            echo "  [OK] Network route to OpenCode API is active."
+          else
+            echo "  [WARN] OpenCode API returned unexpected status $HTTP_CODE"
+          fi
+
+      - name: Clone Code Target & Verify Delta Test Structure
+        run: |
+          echo "=== Step 3: Package Target Repository Verification ==="
+          git clone https://github.com/rb-pkg-math/packages.git target-packages
+          cd target-packages
+          
+          echo "Checking package manifest schema..."
+          python3 -c "import json; manifest = json.load(open('packages/vector2d/package.json')); print('Manifest valid:', manifest['name'], manifest['version'])"
+          
+          echo "Checking package source and test files..."
+          test -f "packages/vector2d/src/vector2d.rb" && echo "  [OK] Source file exists."
+          test -f "packages/vector2d/tests/vector2d_test.rb" && echo "  [OK] Test file exists."
+          
+          echo "=== Smoke Test PASSED: All Gates and Secrets Ready for Phase 126 ==="

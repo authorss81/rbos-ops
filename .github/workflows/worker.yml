@@ -1,0 +1,69 @@
+name: Autonomous Package Worker
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [ worker_tick ]
+
+jobs:
+  worker:
+    name: Parallel Worker Matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        worker_id: [1, 2, 3, 4, 5]
+      fail-fast: false
+
+    steps:
+      - name: Checkout Ops Repository
+        uses: actions/checkout@v4
+
+      - name: Pre-126 Gate & Lease Lock Verification
+        id: check
+        run: |
+          LOCKED=$(jq -r '.locked // false' phases.json)
+          PENDING=$(jq -r '.pending // 0' phases.json)
+          if [ "$LOCKED" = "true" ]; then
+            echo "[LOCKED] Core compiler Phase 126 lock is active. Worker ${{ matrix.worker_id }} idling safely."
+            exit 0
+          fi
+          if [ "$PENDING" -eq 0 ]; then
+            echo "[EMPTY] Queue pending is 0. Triggering perpetual auditor..."
+            gh workflow run auditor.yml || true
+            exit 0
+          fi
+
+      - name: Select Token From Standby Key Ring & Execute
+        env:
+          K1: ${{ secrets.OPENCODE_KEY_1 }}
+          K2: ${{ secrets.OPENCODE_KEY_2 }}
+          K3: ${{ secrets.OPENCODE_KEY_3 }}
+          K4: ${{ secrets.OPENCODE_KEY_4 }}
+          K5: ${{ secrets.OPENCODE_KEY_5 }}
+          K6: ${{ secrets.OPENCODE_KEY_6 }}
+          K7: ${{ secrets.OPENCODE_KEY_7 }}
+          K8: ${{ secrets.OPENCODE_KEY_8 }}
+        run: |
+          echo "Worker ${{ matrix.worker_id }} initializing with rotating token ring..."
+          KEYS=("$K1" "$K2" "$K3" "$K4" "$K5" "$K6" "$K7" "$K8")
+          ACTIVE_KEY=""
+          for K in "${KEYS[@]}"; do
+            if [ -n "$K" ]; then
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.opencode.ai/v1/models -H "Authorization: Bearer $K" || true)
+              if [ "$STATUS" -eq 200 ]; then
+                ACTIVE_KEY="$K"
+                echo "Worker ${{ matrix.worker_id }} authenticated successfully."
+                break
+              elif [ "$STATUS" -eq 429 ]; then
+                echo "Rate limit reached (429). Rotating to next standby key..."
+                continue
+              fi
+            fi
+          done
+          
+          if [ -z "$ACTIVE_KEY" ]; then
+            echo "No viable API key available in ring."
+            exit 1
+          fi
+          
+          echo "Worker ${{ matrix.worker_id }} operational. Standing ready for dispatch."

@@ -1,0 +1,50 @@
+﻿{
+  "project": "rbos",
+  "locked": true,
+  "lock_reason": "Pre-126 lock active. Execution begins when Phase 126 lands on redblue main.",
+  "pending": 6,
+  "phases": [
+    {
+      "id": "phase-001",
+      "layer": 1,
+      "title": "Bare-metal multiboot stub, GDT, IDT & serial console",
+      "status": "pending",
+      "timeout_min": 120
+    },
+    {
+      "id": "phase-002",
+      "layer": 2,
+      "title": "Physical frame allocator, 4KB virtual paging & per-fiber bump arenas",
+      "status": "pending",
+      "timeout_min": 120
+    },
+    {
+      "id": "phase-003",
+      "layer": 3,
+      "title": "Preemptive fiber scheduler, Task Control Blocks & timer interrupts",
+      "status": "pending",
+      "timeout_min": 120
+    },
+    {
+      "id": "phase-004",
+      "layer": 4,
+      "title": "VirtIO drivers: Block disk, Net Ethernet, Input keyboard/mouse, GPU display",
+      "status": "pending",
+      "timeout_min": 120
+    },
+    {
+      "id": "phase-005",
+      "layer": 5,
+      "title": "Virtual File System (VFS), RAMFS, TarFS & SimpleFS",
+      "status": "pending",
+      "timeout_min": 120
+    },
+    {
+      "id": "phase-006",
+      "layer": 6,
+      "title": "Userland shell (init, sh) & framebuffer desktop window manager",
+      "status": "pending",
+      "timeout_min": 120
+    }
+  ]
+}
